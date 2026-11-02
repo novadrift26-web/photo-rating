@@ -1,62 +1,41 @@
 import os
-import json
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, request, jsonify
+import cloudinary
+import cloudinary.uploader
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = 'static/uploads'
-DATA_FILE = 'ratings.json'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-def load_data():
-    if not os.path.exists(DATA_FILE):
-        return {}
-    with open(DATA_FILE, 'r', encoding='utf-8') as f:
-        return json.load(f)
-
-def save_data(data):
-    with open(DATA_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+# 配置 Cloudinary（它会自动读取你在 Vercel 里设置的密钥）
+cloudinary.config(
+    cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    api_key = os.environ.get('CLOUDINARY_API_KEY'),
+    api_secret = os.environ.get('CLOUDINARY_API_SECRET'),
+    secure = True
+)
 
 @app.route('/')
-def index():
-    data = load_data()
-    return render_template('index.html', photos=data)
+def home():
+    return "Photo Rating App is running!"
 
-@app.route('/upload', methods=['GET', 'POST'])
+@app.route('/upload', methods=['POST'])
 def upload_file():
-    if request.method == 'POST':
-        if 'photo' not in request.files:
-            return redirect(request.url)
-        file = request.files['photo']
-        if file.filename == '':
-            return redirect(request.url)
-        if file:
-            filename = file.filename
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            
-            data = load_data()
-            if filename not in data:
-                data[filename] = {"total": 0, "count": 0, "average": 0.0}
-                save_data(data)
-                
-            return redirect(url_for('index'))
-    return render_template('upload.html')
-
-@app.route('/rate/<filename>/<int:score>', methods=['POST'])
-def rate_photo(filename, score):
-    data = load_data()
-    if filename in data and 1 <= score <= 5:
-        data[filename]["total"] += score
-        data[filename]["count"] += 1
-        data[filename]["average"] = round(data[filename]["total"] / data[filename]["count"], 1)
-        save_data(data)
-    return redirect(url_for('index'))
-
-import os
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+        
+    file = request.files['file']
+    
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+        
+    if file:
+        # 直接把图片上传到云端，不会再报错了
+        upload_result = cloudinary.uploader.upload(file)
+        image_url = upload_result.get('secure_url')
+        
+        return jsonify({
+            "message": "Upload success!",
+            "url": image_url
+        })
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(debug=True)
