@@ -5,7 +5,7 @@ import cloudinary.uploader
 
 app = Flask(__name__)
 
-# 配置 Cloudinary（它会自动读取你在 Vercel 里设置的密钥）
+# 配置 Cloudinary 雲端存儲
 cloudinary.config(
     cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME'),
     api_key = os.environ.get('CLOUDINARY_API_KEY'),
@@ -15,7 +15,7 @@ cloudinary.config(
 
 @app.route('/')
 def home():
-    return "Photo Rating App is running!"
+    return "Photo Rating App is running successfully!"
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -28,7 +28,6 @@ def upload_file():
         return jsonify({"error": "No selected file"}), 400
         
     if file:
-        # 直接把图片上传到云端，不会再报错了
         upload_result = cloudinary.uploader.upload(file)
         image_url = upload_result.get('secure_url')
         
